@@ -15,7 +15,7 @@ jax[cuda12_pip]
 
 
 # --- Model + video I/O -------------------------------------------------
-flax
+# flax
 mediapy
 numpy>=1.26
 
@@ -29,4 +29,5 @@ einops
 einshape
 huggingface-hub
 sentencepiece
-tensorflow-cpu
+# tensorflow-cpu
+tensorflow

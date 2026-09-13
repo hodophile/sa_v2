@@ -1,20 +1,27 @@
 # --- JAX / GPU -------------------------------------------------------------
-# The `concrete` kwarg to jax.checkpoint was removed in 0.10.0, and
-# jax.core.get_opaque_trace_state was removed in 0.11.0. VideoPrism's traced
-# codepaths hit both, so pin strictly inside the surviving window: >=0.8.2
-# (when concrete was only *deprecated*, not removed) and <0.10.0.
-# If VideoPrism's own repo pins a narrower/newer range by the time you read
-# this, prefer that over this range.
-jax[cuda12]>=0.8.2,<0.10.0
-jaxlib>=0.8.2,<0.10.0
+# NOTE: the version numbers in the original Colab errors (0.8.2 / 0.10.0 /
+# 0.11.0) don't correspond to anything published on PyPI as of this writing —
+# PyPI's `jax` currently tops out around 0.6.x. Colab evidently runs a
+# newer/nightly build ahead of the public release train. The `concrete` kwarg
+# to jax.checkpoint and jax.core.get_opaque_trace_state are both still
+# present in the public 0.6.x line, so no special pin is needed here — just
+# an upper bound as a safety net for whenever JAX's public releases do catch
+# up to those removals.
+jax[cuda12]<0.8.0
+jaxlib<0.8.0
 
 # --- Model + video I/O -------------------------------------------------
 flax
 mediapy
-numpy
+numpy>=1.26
 
 # --- Service -------------------------------------------------------------
 fastapi
 uvicorn[standard]
 python-multipart   # required by FastAPI for File()/Form() uploads
 pydantic
+huggingface-hub
+absl-py
+einops
+einshape
+sentencepiece

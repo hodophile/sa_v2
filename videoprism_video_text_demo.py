@@ -19,7 +19,8 @@ This notebook provides an example of video and text feature extraction with a pr
 
 import jax
 from jax.extend import backend
-import tensorflow as tf
+from constants import EMOTION_PROMPTS
+# import tensorflow as tf
 
 # # Do not let TF use the GPU or TPUs.
 # tf.config.set_visible_devices([], "GPU")
@@ -30,6 +31,7 @@ print(f"JAX platform: {backend.get_backend().platform}")
 print(f"JAX devices:  {jax.device_count()}")
 
 import os
+import sys; sys.path.append("./videoprism_repo")
 
 import mediapy
 import numpy as np

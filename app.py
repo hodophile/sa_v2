@@ -35,6 +35,7 @@ import jax.numpy as jnp
 import mediapy
 import numpy as np
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 # Make the cloned videoprism repo importable, same as the notebook did.
@@ -146,6 +147,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="VideoPrism Video-Text Service", lifespan=lifespan)
 
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ---------------------------------------------------------------------------
 # Video preprocessing (unchanged logic from the notebook)

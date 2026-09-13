@@ -1,0 +1,52 @@
+# ============================================================
+# sa_v2 / VideoPrism — Colab environment
+# Python 3.13 + CUDA 12
+# ============================================================
+
+# Core JAX GPU stack — keep these versions in sync
+jax==0.11.1
+jaxlib==0.11.1
+jax-cuda12-plugin==0.11.1
+jax-cuda12-pjrt==0.11.1
+
+# JAX ecosystem
+flax==0.12.9
+optax==0.2.8
+orbax-checkpoint==0.12.4
+ml_dtypes==0.6.0
+
+# Scientific computing
+numpy==2.1.3
+scipy==1.16.3
+
+# Video / image processing
+mediapy==1.2.7
+imageio==2.37.4
+imageio-ffmpeg==0.6.0
+moviepy==1.0.3
+opencv-python==5.0.0.93
+pillow==11.3.0
+
+# Common ML utilities
+einops==0.8.2
+etils==1.14.0
+gin-config==0.5.0
+omegaconf==2.3.1
+simple-parsing==0.1.9
+tqdm==4.67.3
+
+# PyTorch — only if your project uses it
+torch==2.11.0+cu128
+torchvision==0.26.0+cu128
+torchaudio==2.11.0+cu128
+
+# Hugging Face — only if your project uses it
+huggingface_hub==1.29.0
+transformers==5.16.1
+safetensors==0.8.0
+
+# Experiment tracking / utilities
+wandb==0.28.1
+
+# VideoPrism / sa_v2 itself
+-e git+https://github.com/hodophile/sa_v2.git@9a584ddf404ae97671459acbc2caba5d792a18f9#egg=videoprism

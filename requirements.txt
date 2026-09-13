@@ -1,0 +1,20 @@
+# --- JAX / GPU -------------------------------------------------------------
+# The `concrete` kwarg to jax.checkpoint was removed in 0.10.0, and
+# jax.core.get_opaque_trace_state was removed in 0.11.0. VideoPrism's traced
+# codepaths hit both, so pin strictly inside the surviving window: >=0.8.2
+# (when concrete was only *deprecated*, not removed) and <0.10.0.
+# If VideoPrism's own repo pins a narrower/newer range by the time you read
+# this, prefer that over this range.
+jax[cuda12]>=0.8.2,<0.10.0
+jaxlib>=0.8.2,<0.10.0
+
+# --- Model + video I/O -------------------------------------------------
+flax
+mediapy
+numpy
+
+# --- Service -------------------------------------------------------------
+fastapi
+uvicorn[standard]
+python-multipart   # required by FastAPI for File()/Form() uploads
+pydantic

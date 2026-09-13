@@ -48,5 +48,9 @@ safetensors==0.8.0
 # Experiment tracking / utilities
 wandb==0.28.1
 
+# VideoPrism dependencies
+tensorflow-cpu==2.21.0
+protobuf>=6.31.1,<8
+
 # VideoPrism / sa_v2 itself
 -e git+https://github.com/hodophile/sa_v2.git@9a584ddf404ae97671459acbc2caba5d792a18f9#egg=videoprism

@@ -36,9 +36,9 @@ simple-parsing==0.1.9
 tqdm==4.67.3
 
 # PyTorch — only if your project uses it
-torch==2.11.0+cu128
-torchvision==0.26.0+cu128
-torchaudio==2.11.0+cu128
+# torch==2.11.0
+# torchvision==0.26.0
+# torchaudio==2.11.0
 
 # Hugging Face — only if your project uses it
 huggingface_hub==1.29.0

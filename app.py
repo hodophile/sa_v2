@@ -37,6 +37,18 @@ import numpy as np
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+import cv2
+import psutil
+
+# The tokenizer path (vp.load_text_tokenizer) pulls in TensorFlow. Left
+# alone, TF initializes its own CUDA context and claims GPU memory
+# independently of JAX the moment it's imported/used — the same failure
+# mode the original notebook works around with these two lines. Without
+# this, TF and JAX silently compete for the same GPU's memory.
+import tensorflow as tf  # noqa: E402
+
+tf.config.set_visible_devices([], "GPU")
+tf.config.set_visible_devices([], "TPU")
 
 # Make the cloned videoprism repo importable, same as the notebook did.
 sys.path.append("./videoprism_repo")
@@ -93,47 +105,45 @@ def _default_queries() -> list[str]:
     ]
 
 
-import os
-import psutil
+_process = psutil.Process(os.getpid())
 
-process = psutil.Process(os.getpid())
 
-def log_memory(stage):
-    rss_gb = process.memory_info().rss / (1024 ** 3)
-
-    logger.info(
-        "MEMORY [%s] | RAM RSS: %.2f GB | JAX devices: %s",
-        stage,
-        rss_gb,
-        jax.devices(),
-    )
+def _log_memory(stage: str) -> None:
+    rss_gb = _process.memory_info().rss / (1024 ** 3)
+    logger.info("MEMORY [%s] | RAM RSS: %.2f GB | JAX devices: %s",
+                stage, rss_gb, jax.devices())
 
 
 def _load_model() -> None:
     logger.info("JAX devices visible: %s", jax.devices())
+    gpu_devices = [d for d in jax.devices() if d.platform == "gpu"]
+    if not gpu_devices:
+        logger.warning(
+            "No GPU device visible to JAX. Falling back to whatever "
+            "jax.devices() returns (likely CPU). Check your CUDA/jaxlib "
+            "install if you expected a GPU here."
+        )
+    else:
+        logger.info("Using GPU device(s): %s", gpu_devices)
 
-    log_memory("startup")
+    _log_memory("startup")
 
     fprop_dtype = jnp.bfloat16 if USE_BFLOAT16 else None
+    flax_model = vp.get_model(MODEL_NAME, fprop_dtype=fprop_dtype)
+    _log_memory("after get_model")
 
-    logger.info("Creating model...")
-    flax_model = vp.get_model(
-        MODEL_NAME,
-        fprop_dtype=fprop_dtype,
-    )
-
-    log_memory("after get_model")
-
-    logger.info("Loading pretrained weights...")
     loaded_state = vp.load_pretrained_weights(MODEL_NAME)
+    _log_memory("after load_pretrained_weights (host RAM, pre device_put)")
 
-    log_memory("after load_pretrained_weights")
+    # Explicitly commit the weights to the GPU once, here, at load time.
+    # Without this, the pretrained weights can sit as plain host-resident
+    # arrays that get re-transferred to the device on every single request
+    # inside forward_fn — costing both host RAM *and* per-request latency.
+    if gpu_devices:
+        loaded_state = jax.device_put(loaded_state, gpu_devices[0])
+        _log_memory("after device_put to GPU")
 
-    logger.info("Loading tokenizer...")
     text_tokenizer = vp.load_text_tokenizer("c4_en")
-
-    log_memory("after tokenizer")
-
 
     @jax.jit
     def forward_fn(inputs, text_token_ids, text_paddings, train=False):
@@ -150,17 +160,17 @@ def _load_model() -> None:
     _state["text_tokenizer"] = text_tokenizer
     _state["forward_fn"] = forward_fn
 
-    # # Warm up the jit compile once at startup rather than on the first
-    # # request, so the first real user isn't the one paying the XLA
-    # # compilation cost.
-    # dummy_frames = jnp.zeros((1, NUM_FRAMES, FRAME_SIZE, FRAME_SIZE, 3))
-    # dummy_queries = _default_queries()
-    # text_ids, text_paddings = vp.tokenize_texts(text_tokenizer, dummy_queries)
-    # if USE_BFLOAT16:
-    #     dummy_frames = dummy_frames.astype(jnp.bfloat16)
-    #     text_paddings = text_paddings.astype(jnp.bfloat16)
-    # forward_fn(dummy_frames, text_ids, text_paddings)
-    # logger.info("Model loaded and warmed up.")
+    # Warm up the jit compile once at startup rather than on the first
+    # request, so the first real user isn't the one paying the XLA
+    # compilation cost.
+    dummy_frames = jnp.zeros((1, NUM_FRAMES, FRAME_SIZE, FRAME_SIZE, 3))
+    dummy_queries = _default_queries()
+    text_ids, text_paddings = vp.tokenize_texts(text_tokenizer, dummy_queries)
+    if USE_BFLOAT16:
+        dummy_frames = dummy_frames.astype(jnp.bfloat16)
+        text_paddings = text_paddings.astype(jnp.bfloat16)
+    forward_fn(dummy_frames, text_ids, text_paddings)
+    logger.info("Model loaded and warmed up.")
 
 
 @asynccontextmanager
@@ -172,7 +182,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="VideoPrism Video-Text Service", lifespan=lifespan)
 
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -181,18 +190,44 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # ---------------------------------------------------------------------------
 # Video preprocessing (unchanged logic from the notebook)
 # ---------------------------------------------------------------------------
 def read_and_preprocess_video(
     filename: str, target_num_frames: int, target_frame_size: tuple[int, int]
 ) -> np.ndarray:
-    frames = mediapy.read_video(filename)
+    """Reads only the frames we need, instead of decoding the whole video.
 
-    frame_indices = np.linspace(
-        0, len(frames), num=target_num_frames, endpoint=False, dtype=np.int32
-    )
-    frames = np.array([frames[i] for i in frame_indices])
+    mediapy.read_video() decodes every frame of the source file into a host
+    RAM array before any sampling happens — for a long or high-resolution
+    upload that spikes RAM far beyond what the model itself ever needs, and
+    is a common cause of an OOM kill that looks like "it's not using the
+    GPU". This uses OpenCV to seek directly to the sampled frame indices.
+    """
+    cap = cv2.VideoCapture(filename)
+    if not cap.isOpened():
+        raise ValueError(f"Could not open video file: {filename}")
+
+    try:
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        if total_frames <= 0:
+            raise ValueError("Could not determine frame count for video.")
+
+        frame_indices = np.linspace(
+            0, total_frames, num=target_num_frames, endpoint=False, dtype=np.int32
+        )
+
+        sampled = []
+        for idx in frame_indices:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, int(idx))
+            ok, bgr_frame = cap.read()
+            if not ok:
+                raise ValueError(f"Failed to read frame {idx} from video.")
+            sampled.append(cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2RGB))
+        frames = np.array(sampled)
+    finally:
+        cap.release()
 
     original_height, original_width = frames.shape[-3:-1]
     target_height, target_width = target_frame_size
@@ -303,6 +338,7 @@ def predict(
         tmp.write(file.file.read())
         tmp.flush()
 
+        _log_memory("before video decode")
         try:
             frames = read_and_preprocess_video(
                 tmp.name,
@@ -313,6 +349,7 @@ def predict(
             raise HTTPException(
                 status_code=400, detail=f"Could not read video: {exc}"
             ) from exc
+        _log_memory("after video decode")
 
     text_queries = (
         [q.strip() for q in queries.split(",") if q.strip()]

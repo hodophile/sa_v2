@@ -135,32 +135,32 @@ def _load_model() -> None:
     log_memory("after tokenizer")
 
 
-    @jax.jit
-    def forward_fn(inputs, text_token_ids, text_paddings, train=False):
-        return flax_model.apply(
-            loaded_state,
-            inputs,
-            text_token_ids,
-            text_paddings,
-            train=train,
-        )
+    # @jax.jit
+    # def forward_fn(inputs, text_token_ids, text_paddings, train=False):
+    #     return flax_model.apply(
+    #         loaded_state,
+    #         inputs,
+    #         text_token_ids,
+    #         text_paddings,
+    #         train=train,
+    #     )
 
-    _state["flax_model"] = flax_model
-    _state["loaded_state"] = loaded_state
-    _state["text_tokenizer"] = text_tokenizer
-    _state["forward_fn"] = forward_fn
+    # _state["flax_model"] = flax_model
+    # _state["loaded_state"] = loaded_state
+    # _state["text_tokenizer"] = text_tokenizer
+    # _state["forward_fn"] = forward_fn
 
-    # Warm up the jit compile once at startup rather than on the first
-    # request, so the first real user isn't the one paying the XLA
-    # compilation cost.
-    dummy_frames = jnp.zeros((1, NUM_FRAMES, FRAME_SIZE, FRAME_SIZE, 3))
-    dummy_queries = _default_queries()
-    text_ids, text_paddings = vp.tokenize_texts(text_tokenizer, dummy_queries)
-    if USE_BFLOAT16:
-        dummy_frames = dummy_frames.astype(jnp.bfloat16)
-        text_paddings = text_paddings.astype(jnp.bfloat16)
-    forward_fn(dummy_frames, text_ids, text_paddings)
-    logger.info("Model loaded and warmed up.")
+    # # Warm up the jit compile once at startup rather than on the first
+    # # request, so the first real user isn't the one paying the XLA
+    # # compilation cost.
+    # dummy_frames = jnp.zeros((1, NUM_FRAMES, FRAME_SIZE, FRAME_SIZE, 3))
+    # dummy_queries = _default_queries()
+    # text_ids, text_paddings = vp.tokenize_texts(text_tokenizer, dummy_queries)
+    # if USE_BFLOAT16:
+    #     dummy_frames = dummy_frames.astype(jnp.bfloat16)
+    #     text_paddings = text_paddings.astype(jnp.bfloat16)
+    # forward_fn(dummy_frames, text_ids, text_paddings)
+    # logger.info("Model loaded and warmed up.")
 
 
 @asynccontextmanager

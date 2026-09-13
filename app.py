@@ -27,8 +27,8 @@ from typing import Optional
 
 # --- Force JAX to see the GPU and to only pre-allocate what it needs. -----
 # Must be set before `import jax`.
-os.environ.setdefault("XLA_PYTHON_CLIENT_PREALLOCATE", "false")
-os.environ.setdefault("XLA_PYTHON_CLIENT_ALLOCATOR", "platform")
+# os.environ.setdefault("XLA_PYTHON_CLIENT_PREALLOCATE", "false")
+# os.environ.setdefault("XLA_PYTHON_CLIENT_ALLOCATOR", "platform")
 
 import jax
 import jax.numpy as jnp
@@ -45,13 +45,13 @@ import psutil
 # independently of JAX the moment it's imported/used — the same failure
 # mode the original notebook works around with these two lines. Without
 # this, TF and JAX silently compete for the same GPU's memory.
-import tensorflow as tf  # noqa: E402
+# import tensorflow as tf  # noqa: E402
 
-tf.config.set_visible_devices([], "GPU")
-tf.config.set_visible_devices([], "TPU")
+# tf.config.set_visible_devices([], "GPU")
+# tf.config.set_visible_devices([], "TPU")
 
 # Make the cloned videoprism repo importable, same as the notebook did.
-sys.path.append("./videoprism_repo")
+# sys.path.append("./videoprism_repo")
 
 from videoprism import models as vp  # noqa: E402
 

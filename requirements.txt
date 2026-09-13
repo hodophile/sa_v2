@@ -25,3 +25,4 @@ absl-py
 einops
 einshape
 sentencepiece
+tensorflow

@@ -20,23 +20,9 @@ This notebook provides an example of video and text feature extraction with a pr
 import jax
 from jax.extend import backend
 from constants import EMOTION_PROMPTS
-# import tensorflow as tf
-
-# # Do not let TF use the GPU or TPUs.
-# tf.config.set_visible_devices([], "GPU")
-# tf.config.set_visible_devices([], "TPU")
-
-print(f"JAX version:  {jax.__version__}")
-print(f"JAX platform: {backend.get_backend().platform}")
-print(f"JAX devices:  {jax.device_count()}")
-
-import os
-import sys; sys.path.append("./videoprism_repo")
 
 import mediapy
 import numpy as np
-from PIL import Image
-
 
 def read_and_preprocess_video(
     filename: str, target_num_frames: int, target_frame_size: tuple[int, int]
@@ -47,7 +33,7 @@ def read_and_preprocess_video(
 
   # Sample to target number of frames.
   frame_indices = np.linspace(
-      0, len(frames), num=target_num_frames, endpoint=False, dtype=np.int32
+      0, len(frames), num=target_num_frames, endpoint=False, dtype=np.int16
   )
   frames = np.array([frames[i] for i in frame_indices])
 
@@ -123,7 +109,7 @@ USE_BFLOAT16 = True  # @param { type: "boolean" }
 NUM_FRAMES = 16
 FRAME_SIZE = 288
 
-fprop_dtype = jnp.bfloat16 if USE_BFLOAT16 else None
+fprop_dtype = jnp.bfloat16 if USE_BFLOAT16 else jnp.float16
 flax_model = vp.get_model(MODEL_NAME, fprop_dtype=fprop_dtype)
 loaded_state = vp.load_pretrained_weights(MODEL_NAME)
 text_tokenizer = vp.load_text_tokenizer('c4_en')
@@ -159,12 +145,12 @@ text_ids, text_paddings = vp.tokenize_texts(text_tokenizer, text_queries)
 if USE_BFLOAT16:
   text_paddings = text_paddings.astype(jnp.bfloat16)
 
-print('Input text queries:')
-for i, text in enumerate(text_queries):
-  print(f'({i + 1}) {text}')
+# print('Input text queries:')
+# for i, text in enumerate(text_queries):
+#   print(f'({i + 1}) {text}')
 
 # @title Specify input video
-VIDEO_FILE_PATH = 'videoprism_repo/videoprism/assets/joy_3_1.mp4'  # @param {type: "string"}
+VIDEO_FILE_PATH = './assets/joy_3_1.mp4'  # @param {type: "string"}
 
 frames = read_and_preprocess_video(
     VIDEO_FILE_PATH,
@@ -191,13 +177,10 @@ similarity_matrix = compute_similarity_matrix(
 v2t_similarity_vector = similarity_matrix[0]
 top_indices = np.argsort(v2t_similarity_vector)[::-1]
 
-print(f'Query video: {os.path.basename(VIDEO_FILE_PATH)}')
-mediapy.show_video(frames[0].astype(jnp.float32), fps=6.0)
-
 for k, j in enumerate(top_indices):
   print(
       'Top-%d retrieved text: %s [Similarity = %0.4f]'
-#       % (k + 1, text_queries[j].split(":")[0], v2t_similarity_vector[j])
+      % (k + 1, text_queries[j].split(":")[0], v2t_similarity_vector[j])
   )
 print(f'\nThis is {text_queries[top_indices[0]]}')
 

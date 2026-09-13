@@ -93,22 +93,47 @@ def _default_queries() -> list[str]:
     ]
 
 
+import os
+import psutil
+
+process = psutil.Process(os.getpid())
+
+def log_memory(stage):
+    rss_gb = process.memory_info().rss / (1024 ** 3)
+
+    logger.info(
+        "MEMORY [%s] | RAM RSS: %.2f GB | JAX devices: %s",
+        stage,
+        rss_gb,
+        jax.devices(),
+    )
+
+
 def _load_model() -> None:
     logger.info("JAX devices visible: %s", jax.devices())
-    gpu_devices = [d for d in jax.devices() if d.platform == "gpu"]
-    if not gpu_devices:
-        logger.warning(
-            "No GPU device visible to JAX. Falling back to whatever "
-            "jax.devices() returns (likely CPU). Check your CUDA/jaxlib "
-            "install if you expected a GPU here."
-        )
-    else:
-        logger.info("Using GPU device(s): %s", gpu_devices)
+
+    log_memory("startup")
 
     fprop_dtype = jnp.bfloat16 if USE_BFLOAT16 else None
-    flax_model = vp.get_model(MODEL_NAME, fprop_dtype=fprop_dtype)
+
+    logger.info("Creating model...")
+    flax_model = vp.get_model(
+        MODEL_NAME,
+        fprop_dtype=fprop_dtype,
+    )
+
+    log_memory("after get_model")
+
+    logger.info("Loading pretrained weights...")
     loaded_state = vp.load_pretrained_weights(MODEL_NAME)
+
+    log_memory("after load_pretrained_weights")
+
+    logger.info("Loading tokenizer...")
     text_tokenizer = vp.load_text_tokenizer("c4_en")
+
+    log_memory("after tokenizer")
+
 
     @jax.jit
     def forward_fn(inputs, text_token_ids, text_paddings, train=False):

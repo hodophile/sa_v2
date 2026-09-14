@@ -18,10 +18,11 @@
 #   - Python 3.10–3.13 only (tensorflow-cpu==2.21.0 has no cp39/cp314 wheels).
 
 # ── JAX / GPU stack (pinned to the line videoprism checkpoints were built on) ──
-jax==0.11.1
+# Use the [cuda12] extra so the nvidia-*-cu12 runtime wheels (cudart, cudnn,
+# cublas, ...) are pulled in — without it JAX can't see the GPU. In Colab these
+# were pre-installed; in a fresh Docker image they must come from this extra.
+jax[cuda12]==0.11.1
 jaxlib==0.11.1
-jax-cuda12-plugin==0.11.1
-jax-cuda12-pjrt==0.11.1
 
 # ── Flax (model definitions + checkpoint loading) — pulls in optax & orbax ──
 flax==0.12.9

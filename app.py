@@ -55,6 +55,15 @@ import psutil
 
 from videoprism import models as vp  # noqa: E402
 
+# The c4_en SentencePiece model ships at gs://t5-data/... which needs
+# tensorflow-io-gcs-filesystem (unavailable on Python 3.13). Bundle a local
+# copy and override the path so it works on HF Spaces / any GPU host without
+# GCS credentials. Falls back to the gs:// path if the local file is absent
+# (e.g. when running inside the original Colab notebook).
+_tokenizer_local = os.environ.get("VIDEOPRISM_TOKENIZER_MODEL_PATH", "")
+if _tokenizer_local and os.path.exists(_tokenizer_local):
+    vp.TEXT_TOKENIZERS["c4_en"]["model_path"] = _tokenizer_local
+
 try:
     from constants import EMOTION_PROMPTS  # noqa: E402
 except ImportError:
@@ -299,6 +308,18 @@ class PredictResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
+@app.get("/")
+def root():
+    # HF Spaces readiness probe hits "/"; return 200 so the Space is marked ready.
+    return {
+        "service": "videoprism-video-text",
+        "status": "ok",
+        "model_loaded": _state["forward_fn"] is not None,
+        "jax_devices": [str(d) for d in jax.devices()],
+        "endpoints": ["GET /", "GET /health", "GET /docs", "POST /predict"],
+    }
+
+
 @app.get("/health")
 def health():
     return {

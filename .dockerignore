@@ -1,0 +1,19 @@
+# Build context exclusions — keep the Docker image lean.
+.venv/
+.git/
+*.ipynb
+*.pyc
+__pycache__/
+*egg-info/
+
+# Sample videos (100 MB) — not needed by the service.
+assets/*.mp4
+videoprism/assets/
+videoprism/colabs/
+
+# Other requirements files (Dockerfile uses requirements.app.txt).
+requirements.txt
+requirements.fresh.txt
+requirements.lock.txt
+pyproject.toml
+uv.lock

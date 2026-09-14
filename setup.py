@@ -44,11 +44,11 @@ setuptools.setup(
     license="Apache 2.0",
     packages=setuptools.find_packages(),
     include_package_data=True,
-    install_requires=install_requires_core,
-    tests_require=tests_require,
-    extras_require={
-        "testing": tests_require,
-    },
+    # install_requires=install_requires_core,
+    # tests_require=tests_require,
+    # extras_require={
+    #     "testing": tests_require,
+    # },
     classifiers=[
         "Development Status :: 1 - Beta",
         "Intended Audience :: Developers",

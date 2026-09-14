@@ -29,5 +29,7 @@ einops
 einshape
 huggingface-hub
 sentencepiece
-# tensorflow-cpu
-tensorflow
+# tensorflow-cpu is sufficient: videoprism only uses TF for gfile.GFile /
+# tf.py_function / tf.RaggedTensor glue in tokenizers.py & utils.py; the model
+# itself runs on JAX/GPU. Pin to 2.21.0 (has cp313 manylinux wheels).
+tensorflow-cpu==2.21.0
